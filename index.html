@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<!-- 
+    Let users manage app data in Google Drive from browser using API v3 -- 
+    authorize, upload, get, update, and use file picker.
+-->
+<head>
+    <meta charset="utf-8" />
+    <title>Google Drive Demo</title>
+
+    <script type="text/javascript">
+
+        // Replace with your API key, copied from https://console.cloud.google.com/apis/credentials
+        const apiKey = 'xxxxxxxYYYYYYYY-12345678';
+
+        // Replace with your Client ID, copied from https://console.cloud.google.com/apis/credentials
+        const clientId = "1234567890-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com"
+
+        // Replace with your Project number, copied from https://console.cloud.google.com/iam-admin/settings
+        const projectNumber = "1234567890";
+
+        // Replace with a mime type unique to your application
+        const mimeType = `application/my.app`;
+
+        let oauthToken, fileId;
+        
+        function loadScripts() {
+            gapi.load('auth');
+            gapi.load('picker');
+            gapi.load('client', () => gapi.client.load('drive', 'v3')
+        }
+
+        function authorize() {
+            gapi.auth.authorize({
+                client_id: clientId,
+                scope: ['https://www.googleapis.com/auth/drive.file'],
+                immediate: false
+            },
+                result => {
+                    if (result.error) {
+                        console.log(result.error);
+                    } else {
+                        oauthToken = result.access_token;
+                        console.log(`Authorized. Token: ${oauthToken}`);
+                        document.getElementById('upload').disabled = false;
+                        document.getElementById('pick').disabled = false;
+                    }
+                }
+            );
+        }
+
+        // From https://stackoverflow.com/a/55095062/362702
+        // For upload we don't use gapi.client.drive.files.create() because it doesn't accept file content
+
+        function upload() {
+            const metadata = { name: 'test.json', mimeType };
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+            form.append('file', JSON.stringify({ hello: 'world' }));
+
+            fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                method: 'POST',
+                headers: new Headers({ Authorization: 'Bearer ' + oauthToken }),
+                body: form
+            })
+                .then(result => result.json())
+                .then(value => {
+                    console.log('Uploaded. Result:\n' + JSON.stringify(value, null, 2));
+                    fileId = value.id;
+                    document.getElementById('get').disabled = false;
+                    document.getElementById('update').disabled = false;
+                })
+                .catch(err => console.error(err))
+        }
+
+        function get(fileId) {
+            gapi.client.drive.files.get({ fileId, alt: 'media' })
+                .then(result => console.log('Fetched. Result: ' + JSON.stringify(result.result)))
+                .catch(err => console.error(err))
+        }
+
+        function update() {
+            const url = 'https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=media';
+            fetch(url, {
+                method: 'PATCH',
+                headers: new Headers({
+                    Authorization: 'Bearer ' + oauthToken,
+                    'Content-type': mimeType
+                }),
+                body: JSON.stringify({ hello: 'universe' })
+            })
+                .then(result => result.json())
+                .then(value => {
+                    console.log('Updated. Result:\n' + JSON.stringify(value, null, 2));
+                })
+                .catch(err => console.error(err))
+        }
+
+        // Modified from https://developers.google.com/picker/docs#example
+
+        function createPicker() {
+            const view = new google.picker.View(google.picker.ViewId.DOCS);
+            view.setMimeTypes(mimeType);
+            const picker = new google.picker.PickerBuilder()
+                .enableFeature(google.picker.Feature.NAV_HIDDEN)
+                .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+                .setAppId(projectNumber)
+                .setOAuthToken(oauthToken)
+                .addView(view)
+                .addView(new google.picker.DocsUploadView())
+                .setDeveloperKey(apiKey)
+                .setCallback(pickerCallback)
+                .build();
+            picker.setVisible(true);
+
+            function pickerCallback(data) {
+                if (data.action == google.picker.Action.PICKED) {
+                    const fileId = data.docs[0].id;
+                    console.log('Picked. FileId: ' + fileId);
+                    get(fileId);
+                }
+            }
+        }
+    </script>
+
+    <!-- Load Google API and call loadScripts() -->
+    <script type="text/javascript" src="https://apis.google.com/js/api.js?onload=loadScripts"></script>
+</head>
+<body>
+    <button id="authorize" onclick="javascript:authorize()">Authorize</button>
+    <button id="upload" onclick="javascript:upload()" disabled>Upload</button>
+    <button id="get" onclick="javascript:get(fileId)" disabled>Get</button>
+    <button id="update" onclick="javascript:update()" disabled>Update</button>
+    <button id="pick" onclick="javascript:createPicker()" disabled>Pick</button>
+</body>
+</html>
