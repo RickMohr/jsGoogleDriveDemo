@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
-<!-- 
-    Let users manage app data in Google Drive from browser using API v3 -- 
-    authorize, upload, get, update, and use file picker.
+<!--
+    Let web app users save and open files in Google Drive using API v3 -- 
+    authorize, upload, get, update, and use the Google file picker.
+
+    Please see important details in README.md
 -->
 <head>
     <meta charset="utf-8" />
@@ -23,11 +25,11 @@
         const mimeType = `application/my.app`;
 
         let oauthToken, fileId;
-        
+
         function loadScripts() {
             gapi.load('auth');
             gapi.load('picker');
-            gapi.load('client', () => gapi.client.load('drive', 'v3')
+            gapi.load('client', () => gapi.client.load('drive', 'v3'));
         }
 
         function authorize() {
